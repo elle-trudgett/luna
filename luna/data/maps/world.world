@@ -1,0 +1,13 @@
+{
+    "maps": [
+        {
+            "fileName": "test_map.tmj",
+            "height": 32,
+            "width": 32,
+            "x": -3408,
+            "y": 0
+        }
+    ],
+    "onlyShowAdjacentMaps": false,
+    "type": "world"
+}

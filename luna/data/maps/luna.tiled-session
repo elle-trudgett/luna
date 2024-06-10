@@ -1,0 +1,25 @@
+{
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "test_map.tmj": {
+            "scale": 1,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 123.5,
+                "y": -253
+            }
+        },
+        "tilesets/test_tileset.tsj": {
+            "dynamicWrapping": true
+        }
+    },
+    "last.imagePath": "/Users/elle/PycharmProjects/luna/luna/data/maps/tilesets",
+    "openFiles": [
+    ],
+    "project": "luna.tiled-project",
+    "recentFiles": [
+        "test_map.tmj"
+    ]
+}

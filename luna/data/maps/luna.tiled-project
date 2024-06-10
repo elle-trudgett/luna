@@ -1,0 +1,104 @@
+{
+    "automappingRulesFile": "",
+    "commands": [
+    ],
+    "compatibilityVersion": 1100,
+    "extensionsPath": "extensions",
+    "folders": [
+        "."
+    ],
+    "properties": [
+    ],
+    "propertyTypes": [
+        {
+            "color": "#ff22ff00",
+            "drawFill": true,
+            "id": 1,
+            "members": [
+            ],
+            "name": "LevelGeometry",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffff1100",
+            "drawFill": true,
+            "id": 2,
+            "members": [
+            ],
+            "name": "DeathZone",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": false,
+            "id": 3,
+            "members": [
+                {
+                    "name": "comment",
+                    "type": "string",
+                    "value": "Map layer that stores geometry."
+                }
+            ],
+            "name": "LevelLayer",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": false,
+            "id": 4,
+            "members": [
+                {
+                    "name": "comment",
+                    "type": "string",
+                    "value": "Map layer that stores Game Objects"
+                }
+            ],
+            "name": "ObjectLayer",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        }
+    ]
+}
