@@ -1,11 +1,12 @@
 import arcade
+import shapely
 from arcade.experimental.input import ActionState
 from pyglet.math import Vec2
+from shapely import LineString, Point
 
-from luna.collision import collision
 from luna.core.game_object import GameObject
 from luna.core.input_action import InputAction
-from luna.core.region_type import RegionType
+from luna.core.region import Region
 from luna.entities.character import Character
 from luna.managers.state_manager import StateManager
 from luna.utils.logging import LOGGER
@@ -22,11 +23,18 @@ class Luna(GameObject):
     character: Character
     state_manager: StateManager
 
+    _ACCELERATION = 10000
+    _MAX_SPEED = 600
+
     _bounding_box_width: float = 50
     _bounding_box_height: float = 160
 
     _inertia: Vec2 = Vec2(0, 500)
     _horizontal_input = 0
+
+    _on_ground: bool = False
+    _ground_line: LineString | None = None
+    _ground_region: Region | None = None
 
     def __init__(self, state_manager: StateManager) -> None:
         super().__init__()
@@ -41,7 +49,11 @@ class Luna(GameObject):
     def on_action(self, action: InputAction, state: ActionState) -> None:
         LOGGER.debug(f"Got action {action} with state {state} for Luna")
         if action == InputAction.JUMP and state == ActionState.PRESSED:
-            self._inertia = Vec2(0, 600)
+            if self._on_ground:
+                self._inertia += Vec2(0, 600)
+                self._on_ground = False
+                self._ground_line = None
+                self._ground_region = None
         elif action == InputAction.LEFT:
             if state == ActionState.PRESSED:
                 self._horizontal_input = -1
@@ -63,28 +75,93 @@ class Luna(GameObject):
         )
 
     def update_position(self, delta_time: float) -> None:
-        # Apply gravity
-        self._inertia += Vec2(0, self.gravity * delta_time)
+        # Vertical movement
+        if not self._on_ground:
+            self._inertia += Vec2(0, self.gravity * delta_time)
+            if self._inertia.y < 0:
+                # Falling
+                # Trace downward from two points at the bottom of our
+                # character's box to see if we hit ground
+                bottom_left = self.position - Vec2(self._bounding_box_width // 2, 0)
+                bottom_right = self.position + Vec2(self._bounding_box_width // 2, 0)
 
-        # Apply horizontal motion
-        self._inertia += Vec2(self._horizontal_input * 20, 0)
+                amount_to_fall = abs(self._inertia.y * delta_time)
 
-        # just for testing purposes, apply collision to ALL the things
-        my_poly = [
-            (self.position[0] - self._bounding_box_width // 2, self.position[1]),
-            (self.position[0] - self._bounding_box_width // 2, self.position[1] + self._bounding_box_height),
-            (self.position[0] + self._bounding_box_width // 2, self.position[1] + self._bounding_box_height),
-            (self.position[0] + self._bounding_box_width // 2, self.position[1]),
-        ]
+                trace_left = LineString([bottom_left, bottom_left + Vec2(0, -amount_to_fall)])
+                trace_right = LineString([bottom_right, bottom_right + Vec2(0, -amount_to_fall)])
 
-        movement_vector = self._inertia * delta_time
-        for region in self.state_manager.current_map.regions:
-            if region.designation == RegionType.LEVEL_GEOMETRY:
-                collision_result = collision.move_polygon_into_other_polygon(
-                    my_poly, movement_vector, region.region_points
-                )
-                movement_vector = collision_result.new_movement_vector
-                if collision_result.collision:
-                    self._inertia = Vec2(0, 0)
+                amount_can_fall = amount_to_fall
+                ground_geometry = None
+                ground_region = None
 
-        self.position = (self.position[0] + movement_vector.x, self.position[1] + movement_vector.y)
+                def check_trace(trace: LineString) -> None:
+                    nonlocal amount_can_fall, ground_geometry, ground_region
+                    for geom, region in self.state_manager.current_map.spatial_tree.query(trace):
+                        intersection = shapely.intersection(trace, geom)
+                        if intersection:
+                            distance = shapely.distance(Point(trace.coords[0]), intersection)
+                            if distance < amount_can_fall:
+                                amount_can_fall = min(amount_can_fall, distance)
+                                self._on_ground = True
+                                self._inertia = Vec2(self._inertia.x, 0)
+                                ground_geometry = geom
+                                ground_region = region
+
+                check_trace(trace_left)
+                check_trace(trace_right)
+
+                # Move down
+                self.position += Vec2(0, -amount_can_fall)
+
+                if ground_geometry is not None:
+                    # Cache the LineString of the edge we're on.
+                    point_geom = Point(self.position)
+                    exterior_coords = ground_geometry.exterior.coords
+                    min_distance = float("inf")
+                    closest_edge = None
+                    for i in range(len(exterior_coords) - 1):
+                        edge = LineString([exterior_coords[i], exterior_coords[i + 1]])
+                        distance = point_geom.distance(edge)
+                        if distance < min_distance:
+                            min_distance = distance
+                            closest_edge = edge
+
+                    # always have co-ordinates go from left to right
+                    if closest_edge.coords[0][0] > closest_edge.coords[1][0]:
+                        closest_edge = LineString([closest_edge.coords[1], closest_edge.coords[0]])
+                    self._ground_line = closest_edge
+                    self._ground_region = ground_region
+
+            else:
+                self.position += Vec2(0, self._inertia.y * delta_time)
+
+        # Horizontal movement
+        if self._on_ground:
+            # Move along the ground
+            if self._horizontal_input != 0 and self._ground_line:
+                x1, y1 = self._ground_line.coords[0]
+                x2, y2 = self._ground_line.coords[1]
+                # Move along the slope
+                direction = Vec2(x2 - x1, y2 - y1).normalize()
+                self._inertia += direction * self._horizontal_input * self._ACCELERATION * self._ground_region.friction * delta_time
+
+                if self._inertia.x < -self._MAX_SPEED:
+                    self._inertia = Vec2(-self._MAX_SPEED, self._inertia.y)
+                elif self._inertia.x > self._MAX_SPEED:
+                    self._inertia = Vec2(self._MAX_SPEED, self._inertia.y)
+            # Apply friction of the ground region
+            if not self._horizontal_input:
+                deceleration_to_apply = self._ACCELERATION * self._ground_region.friction * delta_time
+                if deceleration_to_apply > abs(self._inertia[0]):
+                    self._inertia = Vec2(0, self._inertia.y)
+                elif self._inertia[0] < 0:
+                    self._inertia += Vec2(deceleration_to_apply, 0)
+                else:
+                    self._inertia -= Vec2(deceleration_to_apply, 0)
+
+        else:
+            # Aerial movement
+            ...
+
+        # Move horizontally
+        self.position += Vec2(self._inertia.x * delta_time, 0)

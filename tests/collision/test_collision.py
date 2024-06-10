@@ -2,8 +2,11 @@ import timeit
 
 from arcade.types import PointList
 from pyglet.math import Vec2
+from shapely import Polygon
 
 from luna.collision import collision
+from luna.core.map import Map
+from luna.utils.map_loader import MapLoader
 
 
 def test_sweep_polygon() -> None:
@@ -218,3 +221,15 @@ def test_performance() -> None:
         ),
         number=1000
     )))
+
+
+def test_experimental() -> None:
+    movement: Vec2 = Vec2(0, 0)
+    character: Polygon = Polygon([
+        (-345, 190),
+        (-250, 190),
+        (-250, 120),
+        (-345, 120)
+    ])
+    map: Map = MapLoader().load_map("../../luna/data/maps/test_map.tmj")
+    collision.experimental_collision(character, map, movement)

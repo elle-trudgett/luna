@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from arcade.experimental.input import ActionState
 from arcade.types import Point
+from pyglet.math import Vec2
 
 from luna.core.input_action import InputAction
 from luna.utils.logging import LOGGER
@@ -9,7 +10,7 @@ from luna.utils.logging import LOGGER
 
 @dataclass
 class SpawnParameters:
-    position: Point
+    position: Vec2
 
 
 class GameObject:
@@ -26,7 +27,7 @@ class GameObject:
     """
 
     name: str
-    position: Point
+    position: Vec2
     gravity: float = 0
 
     def on_spawn(self, parameters: SpawnParameters) -> None:

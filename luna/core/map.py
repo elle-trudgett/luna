@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
 
 import arcade
+from shapely import STRtree
 
 from luna.core.game_object import GameObject, SpawnParameters
 from luna.core.map_tile import MapTile
 from luna.core.region import Region
 from luna.core.region_type import RegionType
+from luna.core.spatial_tree import SpatialTree
 from luna.utils.map_constants import DEFAULT_GRAVITY
 
 
@@ -26,6 +28,7 @@ class Map:
     name: str = ""
     objects: list[GameObject] = field(default_factory=list)
     regions: list[Region] = field(default_factory=list)
+    spatial_tree: SpatialTree = None
     tiles: list[MapTile] = field(default_factory=list)
     gravity: float = DEFAULT_GRAVITY
 

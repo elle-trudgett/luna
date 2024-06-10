@@ -2,7 +2,9 @@ from pathlib import Path
 
 import arcade
 import pytiled_parser
+import shapely
 from arcade.earclip import earclip
+from pyglet.math import Vec2
 from pytiled_parser import ObjectLayer, TiledMap
 from pytiled_parser.tiled_object import (
     Tile as ObjectTile,
@@ -11,12 +13,14 @@ from pytiled_parser.tiled_object import (
     Rectangle,
 )
 from pytiled_parser.tileset import Tile
+from shapely import STRtree
 
 from luna.core.game_object import SpawnParameters
 from luna.core.map import Map
 from luna.core.map_tile import MapTile
 from luna.core.region import Region
 from luna.core.region_type import RegionType
+from luna.core.spatial_tree import SpatialTree
 from luna.utils.logging import LOGGER
 from luna.utils.map_constants import OBJ_TYPE_MAP
 from luna.utils.tiled_utils import tile_point_to_absolute_luna_point
@@ -60,6 +64,16 @@ class MapLoader:
                 self._load_level_layer(layer)
             elif layer.class_ == LAYER_NAME_OBJECTS:
                 self._load_object_layer(layer)
+
+        # create spatial tree
+        geometries = []
+        regions = []
+        for region in self._map.regions:
+            if region.designation == RegionType.LEVEL_GEOMETRY:
+                geometries.append(shapely.Polygon(region.region_points))
+                regions.append(region)
+
+        self._map.spatial_tree = SpatialTree(geometries, regions)
 
         LOGGER.debug(f"Map load complete: {map_filename}")
         return self._map
@@ -171,5 +185,5 @@ class MapLoader:
         """
 
         return SpawnParameters(
-            position=(tiled_obj.coordinates.x, -tiled_obj.coordinates.y),
+            position=Vec2(tiled_obj.coordinates.x, -tiled_obj.coordinates.y),
         )

@@ -2,7 +2,6 @@ from luna.core.game_object import SpawnParameters
 from luna.core.map import Map
 from luna.game_objects.luna import Luna
 from luna.game_objects.spawn_point import SpawnPoint
-from luna.managers.collision_manager import CollisionManager
 from luna.managers.input_manager import InputManager
 from luna.managers.state_manager import StateManager
 
@@ -18,12 +17,10 @@ class GameObjectManager:
     map: Map
     input_manager: InputManager
     state_manager: StateManager
-    collision_manager: CollisionManager
 
     def __init__(self, state_manager: StateManager, input_manager: InputManager) -> None:
         self.input_manager = input_manager
         self.state_manager = state_manager
-        self.collision_manager = CollisionManager()
 
         self.load_map(state_manager.current_map)
 
@@ -50,7 +47,6 @@ class GameObjectManager:
         Called when a new map is loaded into the game object manager.
         """
         self._spawn_luna()
-        self.collision_manager.set_map(self.map)
 
     def _spawn_luna(self) -> None:
         """

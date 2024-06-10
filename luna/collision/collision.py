@@ -10,10 +10,11 @@ import shapely.geometry
 from arcade.types import PointList
 from distance3d import colliders, mpr, gjk, epa
 from pyglet.math import Vec2
-from shapely import get_coordinates, Point
+from shapely import get_coordinates, Point, Polygon, STRtree
 from shapely.ops import nearest_points
 from shapely.geometry import MultiPoint, LineString
 
+from luna.core.map import Map
 from luna.core.region import Region
 
 
@@ -49,11 +50,13 @@ class PolygonMovementCollisionResult:
     new_movement_vector: Vec2 | None
 
 
-def experimental_collision(character: PointList, movement_vector: Vec2, regions: list[Region]) -> None:
-    polygon = shapely.Polygon(character)
+def experimental_collision(character: Polygon, map: Map, movement: Vec2) -> None:
+    # first resolve any collisions we are currently in
+    colliding_geometries = map.spatial_tree.query(character)
+    print(f"{colliding_geometries = }")
 
-    # calculate AABBs
-    aabb = polygon.bounds
+    for geometry in colliding_geometries:
+        pass
 
 
 def move_polygon_into_other_polygon_alternate_implementation(

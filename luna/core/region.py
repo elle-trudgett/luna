@@ -19,7 +19,9 @@ class Region:
 
     region_points: PointList
     designation: RegionType
+    friction: float
 
     def __init__(self, region_points: PointList, designation: RegionType) -> None:
         self.region_points = region_points
         self.designation = designation
+        self.friction = 1.0
