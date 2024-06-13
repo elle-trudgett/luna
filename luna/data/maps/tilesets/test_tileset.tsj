@@ -8,9 +8,9 @@
  "margin":0,
  "name":"test_tileset",
  "spacing":0,
- "tilecount":1,
+ "tilecount":2,
  "tiledversion":"1.10.2",
- "tileheight":816,
+ "tileheight":1408,
  "tiles":[
         {
          "id":0,
@@ -254,8 +254,122 @@
              "x":0,
              "y":0
             }
+        }, 
+        {
+         "id":2,
+         "image":"..\/..\/..\/..\/..\/..\/Downloads\/quantumelle_A_2D_platform_down_scrolling_fantasy_game_level_in__0dadf353-1c51-432c-9988-c23101bbac20.png",
+         "imageheight":1408,
+         "imagewidth":3456,
+         "objectgroup":
+            {
+             "draworder":"index",
+             "id":2,
+             "name":"",
+             "objects":[
+                    {
+                     "height":0,
+                     "id":1,
+                     "name":"ground",
+                     "polygon":[
+                            {
+                             "x":0,
+                             "y":0
+                            }, 
+                            {
+                             "x":296,
+                             "y":62
+                            }, 
+                            {
+                             "x":486,
+                             "y":86
+                            }, 
+                            {
+                             "x":679,
+                             "y":90
+                            }, 
+                            {
+                             "x":981,
+                             "y":124
+                            }, 
+                            {
+                             "x":1246,
+                             "y":115
+                            }, 
+                            {
+                             "x":1436,
+                             "y":110
+                            }, 
+                            {
+                             "x":1626,
+                             "y":100
+                            }, 
+                            {
+                             "x":1718,
+                             "y":108
+                            }, 
+                            {
+                             "x":1886,
+                             "y":140
+                            }, 
+                            {
+                             "x":2140,
+                             "y":192
+                            }, 
+                            {
+                             "x":2299,
+                             "y":208
+                            }, 
+                            {
+                             "x":2422,
+                             "y":198
+                            }, 
+                            {
+                             "x":2574,
+                             "y":182
+                            }, 
+                            {
+                             "x":2726,
+                             "y":176
+                            }, 
+                            {
+                             "x":2826,
+                             "y":178
+                            }, 
+                            {
+                             "x":3082,
+                             "y":192
+                            }, 
+                            {
+                             "x":3230,
+                             "y":177
+                            }, 
+                            {
+                             "x":3496,
+                             "y":190
+                            }, 
+                            {
+                             "x":3508,
+                             "y":641
+                            }, 
+                            {
+                             "x":-35,
+                             "y":632
+                            }],
+                     "rotation":0,
+                     "type":"LevelGeometry",
+                     "visible":true,
+                     "width":0,
+                     "x":-11,
+                     "y":815
+                    }],
+             "opacity":1,
+             "type":"objectgroup",
+             "visible":true,
+             "x":0,
+             "y":0
+            }
         }],
- "tilewidth":1456,
+ "tilewidth":3456,
  "type":"tileset",
  "version":"1.10"
 }

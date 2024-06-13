@@ -9,16 +9,16 @@
          "name":"Level",
          "objects":[
                 {
-                 "gid":1,
-                 "height":816,
-                 "id":1,
-                 "name":"test_forest_background",
+                 "gid":3,
+                 "height":1408,
+                 "id":11,
+                 "name":"",
                  "rotation":0,
                  "type":"",
                  "visible":true,
-                 "width":1456,
-                 "x":-826,
-                 "y":185
+                 "width":3456,
+                 "x":-1761,
+                 "y":365
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -45,7 +45,7 @@
          "y":0
         }],
  "nextlayerid":6,
- "nextobjectid":11,
+ "nextobjectid":12,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.10.2",

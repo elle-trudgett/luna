@@ -3,6 +3,7 @@ import shapely
 from arcade.experimental.input import ActionState
 from pyglet.math import Vec2
 from shapely import LineString, Point
+import shapely.ops
 
 from luna.core.game_object import GameObject
 from luna.core.input_action import InputAction
@@ -80,15 +81,11 @@ class Luna(GameObject):
             self._inertia += Vec2(0, self.gravity * delta_time)
             if self._inertia.y < 0:
                 # Falling
-                # Trace downward from two points at the bottom of our
-                # character's box to see if we hit ground
-                bottom_left = self.position - Vec2(self._bounding_box_width // 2, 0)
-                bottom_right = self.position + Vec2(self._bounding_box_width // 2, 0)
+                # Use our position to see when we hit ground
 
                 amount_to_fall = abs(self._inertia.y * delta_time)
 
-                trace_left = LineString([bottom_left, bottom_left + Vec2(0, -amount_to_fall)])
-                trace_right = LineString([bottom_right, bottom_right + Vec2(0, -amount_to_fall)])
+                trace = LineString([self.position, self.position + Vec2(0, -amount_to_fall)])
 
                 amount_can_fall = amount_to_fall
                 ground_geometry = None
@@ -107,8 +104,7 @@ class Luna(GameObject):
                                 ground_geometry = geom
                                 ground_region = region
 
-                check_trace(trace_left)
-                check_trace(trace_right)
+                check_trace(trace)
 
                 # Move down
                 self.position += Vec2(0, -amount_can_fall)
@@ -132,9 +128,6 @@ class Luna(GameObject):
                     self._ground_line = closest_edge
                     self._ground_region = ground_region
 
-            else:
-                self.position += Vec2(0, self._inertia.y * delta_time)
-
         # Horizontal movement
         if self._on_ground:
             # Move along the ground
@@ -143,6 +136,7 @@ class Luna(GameObject):
                 x2, y2 = self._ground_line.coords[1]
                 # Move along the slope
                 direction = Vec2(x2 - x1, y2 - y1).normalize()
+                LOGGER.debug(f"Moving along the ground in direction: {direction}")
                 self._inertia += direction * self._horizontal_input * self._ACCELERATION * self._ground_region.friction * delta_time
 
                 if self._inertia.x < -self._MAX_SPEED:
@@ -164,4 +158,13 @@ class Luna(GameObject):
             ...
 
         # Move horizontally
-        self.position += Vec2(self._inertia.x * delta_time, 0)
+        self.position += self._inertia * delta_time
+
+        if self._on_ground:
+            # Kill y-inertia
+            self._inertia = Vec2(self._inertia.x, 0)
+            # Snap to the nearest point on the ground
+            # First find the nearest point on the line
+            point_geom = Point(self.position)
+            ground_nearest_point, _ = shapely.ops.nearest_points(self._ground_line, point_geom)
+            self.position = Vec2(ground_nearest_point.x, ground_nearest_point.y)
