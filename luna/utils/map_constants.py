@@ -5,4 +5,4 @@ OBJ_SPAWN_POINT = "Spawn Point"
 
 OBJ_TYPE_MAP: dict[str, type[GameObject]] = {OBJ_SPAWN_POINT: SpawnPoint}
 
-DEFAULT_GRAVITY = -1500
+DEFAULT_GRAVITY = -2300

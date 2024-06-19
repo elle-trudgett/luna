@@ -36,14 +36,15 @@ class Luna(GameObject):
     character: Character
     state_manager: StateManager
 
-    _ACCELERATION = 10000
+    _ACCELERATION = 5000
     _MAX_SPEED = 600
 
     _bounding_box_width: float = 50
     _bounding_box_height: float = 160
 
     _inertia: Vec2 = Vec2(0, 500)
-    _horizontal_input = 0
+    _horizontal_input: float = 0
+    _jump_strength: float = 800
 
     _on_ground: bool = False
     _effective_ground: EffectiveGround | None = None
@@ -64,10 +65,8 @@ class Luna(GameObject):
         LOGGER.debug(f"Got action {action} with state {state} for Luna")
         if action == InputAction.JUMP and state == ActionState.PRESSED:
             if self._on_ground:
-                self._inertia += Vec2(0, 600)
+                self._inertia += Vec2(0, self._jump_strength)
                 self._on_ground = False
-                self._ground_line = None
-                self._ground_region = None
         elif action == InputAction.LEFT:
             if state == ActionState.PRESSED:
                 self._horizontal_input = -1
@@ -80,6 +79,11 @@ class Luna(GameObject):
                 self._horizontal_input = min(self._horizontal_input, 0)
 
     def draw(self) -> None:
+
+        for dd in self._debug_draws:
+            dd()
+
+
         state_color = arcade.color.BLUE
         if not self._on_ground:
             state_color = arcade.color.YELLOW
@@ -91,17 +95,67 @@ class Luna(GameObject):
             state_color,
         )
 
-        for dd in self._debug_draws:
-            dd()
-
         self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
-        self.position = self.position + Vec2(self._horizontal_input * self._ACCELERATION * delta_time * 0.03, 0)
+        # cap speed
+        if self._inertia.x < -self._MAX_SPEED:
+            self._inertia = Vec2(-self._MAX_SPEED, self._inertia.y)
+        elif self._inertia.x > self._MAX_SPEED:
+            self._inertia = Vec2(self._MAX_SPEED, self._inertia.y)
+
+        self.position = self.position + self._inertia * delta_time
+
         # find the nearest ground beneath us
         self._effective_ground = self.find_effective_ground()
         if self._effective_ground:
+            a = max(0, int(180 - self._effective_ground.distance_down * 1))
+            self._debug_draws.append(
+                lambda: arcade.draw_ellipse_filled(
+                    self.position[0],
+                    self.position[1] - self._effective_ground.distance_down,
+                    self._bounding_box_width * (1 + max(0, self._effective_ground.distance_down * 0.005)),
+                    10,
+                    arcade.color.Color(0, 0, 0, a),
+                )
+            )
+            if self._effective_ground.distance_down < 0 and self._inertia.y < 0:
+                self._on_ground = True
+                self._inertia = Vec2(self._inertia.x, 0)
+
+        if self._on_ground and self._effective_ground:
+            movement_friction = self._effective_ground.region.friction
+            # snap to ground.
             self.position = self.position - Vec2(0, self._effective_ground.distance_down)
+        else:
+            movement_friction = 0.25
+
+        # add input inertia
+        self._inertia = self._inertia + Vec2(self._horizontal_input * movement_friction * self._ACCELERATION * delta_time, 0)
+
+        # slow down if not giving input
+        if not self._horizontal_input:
+            # decelerate due to friction
+            deceleration_amount = movement_friction * self._ACCELERATION * delta_time
+            if self._on_ground:
+                # apply against ground direction
+                if deceleration_amount > abs(self._inertia):
+                    self._inertia = Vec2(0, 0)
+                else:
+                    self._inertia = self._inertia - self._inertia.normalize() * deceleration_amount
+            else:
+                # only apply to horizontal
+                if deceleration_amount > abs(self._inertia.x):
+                    self._inertia = Vec2(0, self._inertia.y)
+                else:
+                    if self._inertia.x > 0:
+                        self._inertia = Vec2(self._inertia.x - deceleration_amount, self._inertia.y)
+                    else:
+                        self._inertia = Vec2(self._inertia.x + deceleration_amount, self._inertia.y)
+
+        # Vertical movement
+        # add gravity
+        self._inertia = self._inertia + Vec2(0, self.gravity * delta_time)
 
     def find_effective_ground(self) -> EffectiveGround | None:
         ground_check_polygon_y_offset = 80
@@ -131,7 +185,7 @@ class Luna(GameObject):
                         def draw_ground_contact_point():
                             pyglet.shapes.Star(b.x, b.y, 10, 5, 8, color=(255, 0, 0)).draw()
 
-                        self._debug_draws.append(draw_ground_contact_point)
+                        #self._debug_draws.append(draw_ground_contact_point)
 
                         nearest_distance = distance
                         nearest_ground = geom

@@ -72,4 +72,4 @@ class Map:
                     color = arcade.color.GREEN
                 case RegionType.DEATH_ZONE:
                     color = arcade.color.RED
-            arcade.draw_polygon_outline(region.region_points, color, 2)
+            #arcade.draw_polygon_outline(region.region_points, color, 2)
