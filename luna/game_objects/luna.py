@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
 import arcade
+import pyglet
 import shapely
 from arcade.experimental.input import ActionState
 from pyglet.math import Vec2
-from shapely import LineString, Point
+from shapely import LineString, Point, Polygon
 import shapely.ops
 from shapely.geometry.base import BaseGeometry
 
@@ -22,12 +23,6 @@ class EffectiveGround:
     region: Region
     line: LineString
     distance_down: float
-
-
-@dataclass
-class DebugDraw:
-    line: LineString = LineString()
-    color: arcade.color.Color = arcade.color.RED
 
 
 class Luna(GameObject):
@@ -53,7 +48,7 @@ class Luna(GameObject):
     _on_ground: bool = False
     _effective_ground: EffectiveGround | None = None
 
-    _debug_draws: list[DebugDraw] = []
+    _debug_draws = []
 
     def __init__(self, state_manager: StateManager) -> None:
         super().__init__()
@@ -97,49 +92,53 @@ class Luna(GameObject):
         )
 
         for dd in self._debug_draws:
-            arcade.draw_line(dd.line.coords[0][0], dd.line.coords[0][1], dd.line.coords[1][0], dd.line.coords[1][1], dd.color, 2)
+            dd()
 
         self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
-        self.position = self.position + Vec2(self._horizontal_input * self._ACCELERATION * delta_time * 0.1, 0)
+        self.position = self.position + Vec2(self._horizontal_input * self._ACCELERATION * delta_time * 0.03, 0)
         # find the nearest ground beneath us
         self._effective_ground = self.find_effective_ground()
-        print(f"{self._effective_ground = }")
-        self.position = self.position - Vec2(0, self._effective_ground.distance_down)
-
+        if self._effective_ground:
+            self.position = self.position - Vec2(0, self._effective_ground.distance_down)
 
     def find_effective_ground(self) -> EffectiveGround | None:
-        # Ray down from left side
-        ray_y_offset = 20  # start ray above the ground, to account for inclines
-        left_point = Point(self.position[0] - self._bounding_box_width // 2, self.position[1] + ray_y_offset)
-        left_ray = LineString([left_point, left_point + Vec2(0, -1000)])
+        ground_check_polygon_y_offset = 80
+        left_point = Point(self.position[0] - self._bounding_box_width // 2, self.position[1] + ground_check_polygon_y_offset)
+        right_point = Point(self.position[0] + self._bounding_box_width // 2, self.position[1] + ground_check_polygon_y_offset)
 
-        # Ray down from right side
-        right_point = Point(self.position[0] + self._bounding_box_width // 2, self.position[1] + ray_y_offset)
-        right_ray = LineString([right_point, right_point + Vec2(0, -1000)])
+        ground_check_poly = Polygon([
+            (left_point.x, left_point.y),
+            (right_point.x, right_point.y),
+            (right_point.x, right_point.y - 1000),
+            (left_point.x, left_point.y - 1000),
+        ])
 
         # Find the nearest ground
         nearest_ground: BaseGeometry | None = None
         nearest_distance = float("inf")
         dd = None
-        for ray in [left_ray, right_ray]:
-            for geom, region in self.state_manager.current_map.spatial_tree.query(ray):
-                if region.designation == RegionType.LEVEL_GEOMETRY:
-                    intersection = ray.intersection(geom)
-                    if intersection:
-                        distance = shapely.distance(Point(ray.coords[0]), intersection)
-                        if distance < nearest_distance:
-                            dd = DebugDraw(
-                                line=ray,
-                                color=arcade.color.RED
-                            )
-                            nearest_distance = distance
-                            nearest_ground = geom
+        for geom, region in self.state_manager.current_map.spatial_tree.query(ground_check_poly):
+            if region.designation == RegionType.LEVEL_GEOMETRY:
+                intersection = ground_check_poly.intersection(geom)
+                if intersection:
+                    top_of_ground_poly = LineString([left_point, right_point])
+                    distance = shapely.distance(top_of_ground_poly, intersection)
+                    if distance < nearest_distance:
+                        a, b = shapely.ops.nearest_points(top_of_ground_poly, intersection)
+
+                        def draw_ground_contact_point():
+                            pyglet.shapes.Star(b.x, b.y, 10, 5, 8, color=(255, 0, 0)).draw()
+
+                        self._debug_draws.append(draw_ground_contact_point)
+
+                        nearest_distance = distance
+                        nearest_ground = geom
         if dd:
             self._debug_draws.append(dd)
 
         if nearest_ground:
-            return EffectiveGround(region=region, line=nearest_ground, distance_down=nearest_distance - ray_y_offset)
+            return EffectiveGround(region=region, line=nearest_ground, distance_down=nearest_distance - ground_check_polygon_y_offset)
         else:
             return None
