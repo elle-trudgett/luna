@@ -1,16 +1,33 @@
+from dataclasses import dataclass
+
 import arcade
 import shapely
 from arcade.experimental.input import ActionState
 from pyglet.math import Vec2
 from shapely import LineString, Point
 import shapely.ops
+from shapely.geometry.base import BaseGeometry
 
 from luna.core.game_object import GameObject
 from luna.core.input_action import InputAction
 from luna.core.region import Region
+from luna.core.region_type import RegionType
 from luna.entities.character import Character
 from luna.managers.state_manager import StateManager
 from luna.utils.logging import LOGGER
+
+
+@dataclass
+class EffectiveGround:
+    region: Region
+    line: LineString
+    distance_down: float
+
+
+@dataclass
+class DebugDraw:
+    line: LineString = LineString()
+    color: arcade.color.Color = arcade.color.RED
 
 
 class Luna(GameObject):
@@ -34,8 +51,9 @@ class Luna(GameObject):
     _horizontal_input = 0
 
     _on_ground: bool = False
-    _ground_line: LineString | None = None
-    _ground_region: Region | None = None
+    _effective_ground: EffectiveGround | None = None
+
+    _debug_draws: list[DebugDraw] = []
 
     def __init__(self, state_manager: StateManager) -> None:
         super().__init__()
@@ -67,104 +85,61 @@ class Luna(GameObject):
                 self._horizontal_input = min(self._horizontal_input, 0)
 
     def draw(self) -> None:
+        state_color = arcade.color.BLUE
+        if not self._on_ground:
+            state_color = arcade.color.YELLOW
         arcade.draw_lrbt_rectangle_filled(
             self.position[0] - self._bounding_box_width // 2,
             self.position[0] + self._bounding_box_width // 2,
             self.position[1],
             self.position[1] + self._bounding_box_height,
-            arcade.color.BLUE,
+            state_color,
         )
 
+        for dd in self._debug_draws:
+            arcade.draw_line(dd.line.coords[0][0], dd.line.coords[0][1], dd.line.coords[1][0], dd.line.coords[1][1], dd.color, 2)
+
+        self._debug_draws.clear()
+
     def update_position(self, delta_time: float) -> None:
-        # Vertical movement
-        if not self._on_ground:
-            self._inertia += Vec2(0, self.gravity * delta_time)
-            if self._inertia.y < 0:
-                # Falling
-                # Use our position to see when we hit ground
+        self.position = self.position + Vec2(self._horizontal_input * self._ACCELERATION * delta_time * 0.1, 0)
+        # find the nearest ground beneath us
+        self._effective_ground = self.find_effective_ground()
+        print(f"{self._effective_ground = }")
+        self.position = self.position - Vec2(0, self._effective_ground.distance_down)
 
-                amount_to_fall = abs(self._inertia.y * delta_time)
 
-                trace = LineString([self.position, self.position + Vec2(0, -amount_to_fall)])
+    def find_effective_ground(self) -> EffectiveGround | None:
+        # Ray down from left side
+        ray_y_offset = 20  # start ray above the ground, to account for inclines
+        left_point = Point(self.position[0] - self._bounding_box_width // 2, self.position[1] + ray_y_offset)
+        left_ray = LineString([left_point, left_point + Vec2(0, -1000)])
 
-                amount_can_fall = amount_to_fall
-                ground_geometry = None
-                ground_region = None
+        # Ray down from right side
+        right_point = Point(self.position[0] + self._bounding_box_width // 2, self.position[1] + ray_y_offset)
+        right_ray = LineString([right_point, right_point + Vec2(0, -1000)])
 
-                def check_trace(trace: LineString) -> None:
-                    nonlocal amount_can_fall, ground_geometry, ground_region
-                    for geom, region in self.state_manager.current_map.spatial_tree.query(trace):
-                        intersection = shapely.intersection(trace, geom)
-                        if intersection:
-                            distance = shapely.distance(Point(trace.coords[0]), intersection)
-                            if distance < amount_can_fall:
-                                amount_can_fall = min(amount_can_fall, distance)
-                                self._on_ground = True
-                                self._inertia = Vec2(self._inertia.x, 0)
-                                ground_geometry = geom
-                                ground_region = region
+        # Find the nearest ground
+        nearest_ground: BaseGeometry | None = None
+        nearest_distance = float("inf")
+        dd = None
+        for ray in [left_ray, right_ray]:
+            for geom, region in self.state_manager.current_map.spatial_tree.query(ray):
+                if region.designation == RegionType.LEVEL_GEOMETRY:
+                    intersection = ray.intersection(geom)
+                    if intersection:
+                        distance = shapely.distance(Point(ray.coords[0]), intersection)
+                        if distance < nearest_distance:
+                            dd = DebugDraw(
+                                line=ray,
+                                color=arcade.color.RED
+                            )
+                            nearest_distance = distance
+                            nearest_ground = geom
+        if dd:
+            self._debug_draws.append(dd)
 
-                check_trace(trace)
-
-                # Move down
-                self.position += Vec2(0, -amount_can_fall)
-
-                if ground_geometry is not None:
-                    # Cache the LineString of the edge we're on.
-                    point_geom = Point(self.position)
-                    exterior_coords = ground_geometry.exterior.coords
-                    min_distance = float("inf")
-                    closest_edge = None
-                    for i in range(len(exterior_coords) - 1):
-                        edge = LineString([exterior_coords[i], exterior_coords[i + 1]])
-                        distance = point_geom.distance(edge)
-                        if distance < min_distance:
-                            min_distance = distance
-                            closest_edge = edge
-
-                    # always have co-ordinates go from left to right
-                    if closest_edge.coords[0][0] > closest_edge.coords[1][0]:
-                        closest_edge = LineString([closest_edge.coords[1], closest_edge.coords[0]])
-                    self._ground_line = closest_edge
-                    self._ground_region = ground_region
-
-        # Horizontal movement
-        if self._on_ground:
-            # Move along the ground
-            if self._horizontal_input != 0 and self._ground_line:
-                x1, y1 = self._ground_line.coords[0]
-                x2, y2 = self._ground_line.coords[1]
-                # Move along the slope
-                direction = Vec2(x2 - x1, y2 - y1).normalize()
-                LOGGER.debug(f"Moving along the ground in direction: {direction}")
-                self._inertia += direction * self._horizontal_input * self._ACCELERATION * self._ground_region.friction * delta_time
-
-                if self._inertia.x < -self._MAX_SPEED:
-                    self._inertia = Vec2(-self._MAX_SPEED, self._inertia.y)
-                elif self._inertia.x > self._MAX_SPEED:
-                    self._inertia = Vec2(self._MAX_SPEED, self._inertia.y)
-            # Apply friction of the ground region
-            if not self._horizontal_input:
-                deceleration_to_apply = self._ACCELERATION * self._ground_region.friction * delta_time
-                if deceleration_to_apply > abs(self._inertia[0]):
-                    self._inertia = Vec2(0, self._inertia.y)
-                elif self._inertia[0] < 0:
-                    self._inertia += Vec2(deceleration_to_apply, 0)
-                else:
-                    self._inertia -= Vec2(deceleration_to_apply, 0)
-
+        if nearest_ground:
+            return EffectiveGround(region=region, line=nearest_ground, distance_down=nearest_distance - ray_y_offset)
         else:
-            # Aerial movement
-            ...
-
-        # Move horizontally
-        self.position += self._inertia * delta_time
-
-        if self._on_ground:
-            # Kill y-inertia
-            self._inertia = Vec2(self._inertia.x, 0)
-            # Snap to the nearest point on the ground
-            # First find the nearest point on the line
-            point_geom = Point(self.position)
-            ground_nearest_point, _ = shapely.ops.nearest_points(self._ground_line, point_geom)
-            self.position = Vec2(ground_nearest_point.x, ground_nearest_point.y)
+            return None
