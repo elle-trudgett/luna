@@ -1,5 +1,11 @@
 # Progress
 
+## Collision detection for ground shapes
+### 6/18/2024
+![Luna standing on the ground](images/004.jpg)
+
+New collision detection for resolving the ground just dropped, it's much smoother.
+
 ## Collision Detection and Resolution
 ### 6/4/2024
 ![Luna sitting on the ground](images/003.jpg)
