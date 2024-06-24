@@ -18,10 +18,12 @@ class Region:
     """
 
     region_points: PointList
+    geometry_type: str
     designation: RegionType
     friction: float
 
-    def __init__(self, region_points: PointList, designation: RegionType) -> None:
+    def __init__(self, region_points: PointList, geometry_type: str, designation: RegionType) -> None:
         self.region_points = region_points
+        self.geometry_type = geometry_type
         self.designation = designation
         self.friction = 1.0

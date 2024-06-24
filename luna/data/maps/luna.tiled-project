@@ -11,12 +11,12 @@
     ],
     "propertyTypes": [
         {
-            "color": "#ff22ff00",
+            "color": "#ffe600ff",
             "drawFill": true,
-            "id": 1,
+            "id": 8,
             "members": [
             ],
-            "name": "LevelGeometry",
+            "name": "Ceiling",
             "type": "class",
             "useAs": [
                 "property",
@@ -37,6 +37,26 @@
             "members": [
             ],
             "name": "DeathZone",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ff22ff00",
+            "drawFill": true,
+            "id": 1,
+            "members": [
+            ],
+            "name": "Ground",
             "type": "class",
             "useAs": [
                 "property",
@@ -87,6 +107,46 @@
                 }
             ],
             "name": "ObjectLayer",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#fff6eb00",
+            "drawFill": true,
+            "id": 6,
+            "members": [
+            ],
+            "name": "Platform",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        },
+        {
+            "color": "#ffff0300",
+            "drawFill": true,
+            "id": 7,
+            "members": [
+            ],
+            "name": "Wall",
             "type": "class",
             "useAs": [
                 "property",

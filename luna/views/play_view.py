@@ -53,6 +53,8 @@ class PlayView(View):
         )
 
     def on_update(self, delta_time: float) -> None:
+        delta_time = min(delta_time, 0.03333)  # process only up to 1/30th of a second per update
+
         self.game_object_manager.update(delta_time)
 
         # Update camera after everything else has been updated/moved around.

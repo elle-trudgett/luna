@@ -11,6 +11,7 @@ from pytiled_parser.tiled_object import (
     TiledObject,
     Polygon,
     Rectangle,
+    Polyline
 )
 from pytiled_parser.tileset import Tile
 from shapely import STRtree
@@ -69,8 +70,11 @@ class MapLoader:
         geometries = []
         regions = []
         for region in self._map.regions:
-            if region.designation == RegionType.LEVEL_GEOMETRY:
+            if region.geometry_type == "polygon":
                 geometries.append(shapely.Polygon(region.region_points))
+                regions.append(region)
+            elif region.geometry_type == "line_string":
+                geometries.append(shapely.LineString(region.region_points))
                 regions.append(region)
 
         self._map.spatial_tree = SpatialTree(geometries, regions)
@@ -130,12 +134,14 @@ class MapLoader:
 
     def _add_level_geometry(self, object_tile: ObjectTile, geometry_object: TiledObject) -> None:
         points = []
+        geometry_type = ""
         x = geometry_object.coordinates.x
         y = geometry_object.coordinates.y
 
         if isinstance(geometry_object, Polygon):
             for point in geometry_object.points:
                 points.append((x + point.x, y + point.y))
+            geometry_type = "polygon"
         elif isinstance(geometry_object, Rectangle):
             width = geometry_object.size.width
             height = geometry_object.size.height
@@ -143,6 +149,11 @@ class MapLoader:
             points.append((x + width, y))
             points.append((x + width, y + height))
             points.append((x, y + height))
+            geometry_type = "polygon"
+        elif isinstance(geometry_object, Polyline):
+            for point in geometry_object.points:
+                points.append((x + point.x, y + point.y))
+            geometry_type = "line_string"
         else:
             raise ValueError(f"Unsupported geometry object type {type(geometry_object)}")
 
@@ -156,11 +167,20 @@ class MapLoader:
             for x, y in points
         ]
 
-        # Triangulate polygon to ensure regions are convex
-        triangles = earclip(points)
-        for triangle in triangles:
+        if geometry_type == "polygon":
+            # Triangulate polygon to ensure regions are convex
+            triangles = earclip(points)
+            for triangle in triangles:
+                geometry_region = Region(
+                    region_points=triangle,
+                    geometry_type="polygon",
+                    designation=self._to_region_type(geometry_object.class_),
+                )
+                self._map.regions.append(geometry_region)
+        else:
             geometry_region = Region(
-                region_points=triangle,
+                region_points=points,
+                geometry_type="line_string",
                 designation=self._to_region_type(geometry_object.class_),
             )
             self._map.regions.append(geometry_region)
@@ -172,8 +192,14 @@ class MapLoader:
         :return: The corresponding RegionType
         """
         match geometry_class:
-            case "LevelGeometry":
-                return RegionType.LEVEL_GEOMETRY
+            case "Ground":
+                return RegionType.GROUND
+            case "Platform":
+                return RegionType.PLATFORM
+            case "Wall":
+                return RegionType.WALL
+            case "Ceiling":
+                return RegionType.CEILING
             case "DeathZone":
                 return RegionType.DEATH_ZONE
             case _:

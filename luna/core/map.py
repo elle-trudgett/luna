@@ -68,8 +68,17 @@ class Map:
         for region in self.regions:
             color = arcade.color.BLACK
             match region.designation:
-                case RegionType.LEVEL_GEOMETRY:
+                case RegionType.GROUND:
                     color = arcade.color.GREEN
                 case RegionType.DEATH_ZONE:
+                    color = arcade.color.BLACK
+                case RegionType.WALL:
                     color = arcade.color.RED
-            #arcade.draw_polygon_outline(region.region_points, color, 2)
+                case RegionType.PLATFORM:
+                    color = arcade.color.YELLOW
+                case RegionType.CEILING:
+                    color = arcade.color.MAGENTA
+            if region.geometry_type == "polygon":
+                arcade.draw_polygon_outline(region.region_points, color, 2)
+            elif region.geometry_type == "line_string":
+                arcade.draw_line_strip(region.region_points, color, 3)

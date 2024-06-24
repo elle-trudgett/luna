@@ -25,6 +25,13 @@ class EffectiveGround:
     distance_down: float
 
 
+@dataclass
+class EffectiveWall:
+    region: Region
+    line: LineString
+    distance: float
+
+
 class Luna(GameObject):
     """
     Luna in the game world.
@@ -98,6 +105,10 @@ class Luna(GameObject):
         self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
+        # add gravity
+        if not self._on_ground:
+            self._inertia = self._inertia + Vec2(0, self.gravity * delta_time)
+
         # cap speed
         if self._inertia.x < -self._MAX_SPEED:
             self._inertia = Vec2(-self._MAX_SPEED, self._inertia.y)
@@ -109,19 +120,23 @@ class Luna(GameObject):
         # find the nearest ground beneath us
         self._effective_ground = self.find_effective_ground()
         if self._effective_ground:
-            a = max(0, int(180 - self._effective_ground.distance_down * 1))
+            shadow_alpha = min(255, max(0, int(180 - self._effective_ground.distance_down * 1)))
             self._debug_draws.append(
                 lambda: arcade.draw_ellipse_filled(
                     self.position[0],
                     self.position[1] - self._effective_ground.distance_down,
                     self._bounding_box_width * (1 + max(0, self._effective_ground.distance_down * 0.005)),
                     10,
-                    arcade.color.Color(0, 0, 0, a),
+                    arcade.color.Color(0, 0, 0, shadow_alpha),
                 )
             )
-            if self._effective_ground.distance_down < 0 and self._inertia.y < 0:
+            # See if we are falling into this ground, not just finding ourselves under it
+            if self._inertia.y * delta_time <= self._effective_ground.distance_down <= 0:
                 self._on_ground = True
                 self._inertia = Vec2(self._inertia.x, 0)
+
+        if not self._effective_ground or self._effective_ground.distance_down > 20:
+            self._on_ground = False
 
         if self._on_ground and self._effective_ground:
             movement_friction = self._effective_ground.region.friction
@@ -153,10 +168,6 @@ class Luna(GameObject):
                     else:
                         self._inertia = Vec2(self._inertia.x + deceleration_amount, self._inertia.y)
 
-        # Vertical movement
-        # add gravity
-        self._inertia = self._inertia + Vec2(0, self.gravity * delta_time)
-
     def find_effective_ground(self) -> EffectiveGround | None:
         ground_check_polygon_y_offset = 80
         left_point = Point(self.position[0] - self._bounding_box_width // 2, self.position[1] + ground_check_polygon_y_offset)
@@ -174,7 +185,7 @@ class Luna(GameObject):
         nearest_distance = float("inf")
         dd = None
         for geom, region in self.state_manager.current_map.spatial_tree.query(ground_check_poly):
-            if region.designation == RegionType.LEVEL_GEOMETRY:
+            if region.designation == RegionType.GROUND:
                 intersection = ground_check_poly.intersection(geom)
                 if intersection:
                     top_of_ground_poly = LineString([left_point, right_point])
