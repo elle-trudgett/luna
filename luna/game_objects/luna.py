@@ -69,6 +69,7 @@ class Luna(GameObject):
 
     def update(self, delta_time: float) -> None:
         super().update(delta_time)
+        self._debug_draws.clear()
         self.update_position(delta_time)
 
     def on_action(self, action: InputAction, state: ActionState) -> None:
@@ -104,8 +105,6 @@ class Luna(GameObject):
             self.position[1] + self._bounding_box_height,
             state_color,
         )
-
-        self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
         self._previous_position = self.position
@@ -216,7 +215,7 @@ class Luna(GameObject):
 
     def resolve_wall_collisions(self) -> None:
         # check left and right
-        self.resolve_wall_collisions_direction(-1)
+        #self.resolve_wall_collisions_direction(-1)
         self.resolve_wall_collisions_direction(1)
 
     def resolve_wall_collisions_direction(self, direction: int) -> None:
@@ -237,17 +236,13 @@ class Luna(GameObject):
             if region.designation == RegionType.WALL:
                 intersection = wall_check_poly.intersection(geom)
                 if intersection:
-                    luna_collision_line = LineString([(x_edge, bottom_edge), (x_edge, top_edge)])
-                    distance = shapely.distance(luna_collision_line, intersection)
-                    true_distance = distance - x_offset
-
-                    if true_distance < 0 and abs(true_distance) <= abs(x_offset / 2):
+                    poly_far_edge = LineString([(x_edge, bottom_edge), (x_edge, top_edge)])
+                    a, b = shapely.ops.nearest_points(poly_far_edge, intersection)
+                    horizontal_distance = abs(b.x - a.x)
+                    true_horizontal_distance = horizontal_distance - x_offset
+                    if -x_offset / 2 <= true_horizontal_distance <= 0:
                         self._inertia = Vec2(0, self._inertia.y)
-                        self.position = self.position + Vec2(direction * true_distance, 0)
-                        # project inertia onto the wall
-                        wall_vector = Vec2(geom.coords[0][0], geom.coords[0][1]) - Vec2(geom.coords[1][0], geom.coords[1][1])
-                        inertia_proj = self._inertia.dot(wall_vector) / (abs(wall_vector) ** 2) * wall_vector
-                        self._inertia = inertia_proj
+                        self.position = self.position + Vec2(true_horizontal_distance * direction, 0)
 
     def compute_hitbox(self) -> Polygon:
         hitbox = Polygon([
