@@ -178,12 +178,13 @@ class MapLoader:
                 )
                 self._map.regions.append(geometry_region)
         else:
-            geometry_region = Region(
-                region_points=points,
-                geometry_type="line_string",
-                designation=self._to_region_type(geometry_object.class_),
-            )
-            self._map.regions.append(geometry_region)
+            for i in range(len(points) - 1):
+                geometry_region = Region(
+                    region_points=[points[i], points[i + 1]],
+                    geometry_type="line_string",
+                    designation=self._to_region_type(geometry_object.class_),
+                )
+                self._map.regions.append(geometry_region)
 
     def _to_region_type(self, geometry_class: str) -> RegionType:
         """

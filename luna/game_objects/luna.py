@@ -45,6 +45,7 @@ class Luna(GameObject):
 
     _ACCELERATION = 5000
     _MAX_SPEED = 600
+    _TERMINAL_VELOCITY = -5000
 
     _bounding_box_width: float = 50
     _bounding_box_height: float = 160
@@ -55,6 +56,7 @@ class Luna(GameObject):
 
     _on_ground: bool = False
     _effective_ground: EffectiveGround | None = None
+    _delta_inertia = Vec2(0, 0)
 
     _debug_draws = []
 
@@ -105,6 +107,9 @@ class Luna(GameObject):
         self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
+        self._initial_hitbox = self.compute_hitbox()
+        self._initial_position = self.position
+
         # add gravity
         if not self._on_ground:
             self._inertia = self._inertia + Vec2(0, self.gravity * delta_time)
@@ -114,18 +119,21 @@ class Luna(GameObject):
             self._inertia = Vec2(-self._MAX_SPEED, self._inertia.y)
         elif self._inertia.x > self._MAX_SPEED:
             self._inertia = Vec2(self._MAX_SPEED, self._inertia.y)
+        if self._inertia.y < self._TERMINAL_VELOCITY:
+            self._inertia = Vec2(self._inertia.x, self._TERMINAL_VELOCITY)
 
+        self._delta_inertia = self._inertia * delta_time
         self.position = self.position + self._inertia * delta_time
 
         # find the nearest ground beneath us
-        self._effective_ground = self.find_effective_ground()
+        self._effective_ground = self.find_ground_below()
         if self._effective_ground:
             shadow_alpha = min(255, max(0, int(180 - self._effective_ground.distance_down * 1)))
             self._debug_draws.append(
                 lambda: arcade.draw_ellipse_filled(
                     self.position[0],
                     self.position[1] - self._effective_ground.distance_down,
-                    self._bounding_box_width * (1 + max(0, self._effective_ground.distance_down * 0.005)),
+                    self._bounding_box_width * (1 + max(0.0, self._effective_ground.distance_down * 0.005)),
                     10,
                     arcade.color.Color(0, 0, 0, shadow_alpha),
                 )
@@ -144,6 +152,9 @@ class Luna(GameObject):
             self.position = self.position - Vec2(0, self._effective_ground.distance_down)
         else:
             movement_friction = 0.25
+
+        # Collisions with walls
+        self.resolve_wall_collisions()
 
         # add input inertia
         self._inertia = self._inertia + Vec2(self._horizontal_input * movement_friction * self._ACCELERATION * delta_time, 0)
@@ -168,7 +179,7 @@ class Luna(GameObject):
                     else:
                         self._inertia = Vec2(self._inertia.x + deceleration_amount, self._inertia.y)
 
-    def find_effective_ground(self) -> EffectiveGround | None:
+    def find_ground_below(self) -> EffectiveGround | None:
         ground_check_polygon_y_offset = 80
         left_point = Point(self.position[0] - self._bounding_box_width // 2, self.position[1] + ground_check_polygon_y_offset)
         right_point = Point(self.position[0] + self._bounding_box_width // 2, self.position[1] + ground_check_polygon_y_offset)
@@ -188,16 +199,10 @@ class Luna(GameObject):
             if region.designation == RegionType.GROUND:
                 intersection = ground_check_poly.intersection(geom)
                 if intersection:
-                    top_of_ground_poly = LineString([left_point, right_point])
-                    distance = shapely.distance(top_of_ground_poly, intersection)
+                    luna_collision_base = LineString([left_point, right_point])
+                    distance = shapely.distance(luna_collision_base, intersection)
+
                     if distance < nearest_distance:
-                        a, b = shapely.ops.nearest_points(top_of_ground_poly, intersection)
-
-                        def draw_ground_contact_point():
-                            pyglet.shapes.Star(b.x, b.y, 10, 5, 8, color=(255, 0, 0)).draw()
-
-                        #self._debug_draws.append(draw_ground_contact_point)
-
                         nearest_distance = distance
                         nearest_ground = geom
         if dd:
@@ -207,3 +212,45 @@ class Luna(GameObject):
             return EffectiveGround(region=region, line=nearest_ground, distance_down=nearest_distance - ground_check_polygon_y_offset)
         else:
             return None
+
+    def resolve_wall_collisions(self) -> None:
+        # check left and right
+        self.resolve_wall_collisions_direction(-1)
+        self.resolve_wall_collisions_direction(1)
+
+    def resolve_wall_collisions_direction(self, direction: int) -> None:
+        x_offset = 80
+        x_edge = self.position[0] + direction * self._bounding_box_width // 2 - direction * x_offset
+
+        bottom_edge = self.position[1]
+        top_edge = self.position[1] + self._bounding_box_height
+
+        wall_check_poly = Polygon([
+            (x_edge, bottom_edge),
+            (x_edge, top_edge),
+            (x_edge + direction * x_offset * 3, top_edge),
+            (x_edge + direction * x_offset * 3, bottom_edge),
+        ])
+
+        for geom, region in self.state_manager.current_map.spatial_tree.query(wall_check_poly):
+            if region.designation == RegionType.WALL:
+                intersection = wall_check_poly.intersection(geom)
+                if intersection:
+                    luna_collision_line = LineString([(x_edge, bottom_edge), (x_edge, top_edge)])
+                    distance = shapely.distance(luna_collision_line, intersection)
+                    true_distance = distance - x_offset
+
+                    if true_distance < 0:
+                        # inside a wall
+                        if abs(true_distance) <= abs(x_offset / 2):
+                            self.position = self.position + Vec2(direction * true_distance, 0)
+                            self._inertia = Vec2(0, self._inertia.y)
+
+    def compute_hitbox(self):
+        hitbox = Polygon([
+            (self.position[0] - self._bounding_box_width // 2, self.position[1]),
+            (self.position[0] + self._bounding_box_width // 2, self.position[1]),
+            (self.position[0] + self._bounding_box_width // 2, self.position[1] + self._bounding_box_height),
+            (self.position[0] - self._bounding_box_width // 2, self.position[1] + self._bounding_box_height),
+        ])
+        return hitbox
