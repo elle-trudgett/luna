@@ -42,7 +42,7 @@ class PlayView(View):
 
     def draw_fps(self) -> None:
         arcade.draw_text(
-            f"FPS = {int(arcade.get_fps())} | Camera = {self.camera.position}",
+            f"FPS = {int(arcade.get_fps())} | Camera = {self.camera.position[0]:.2f}, {self.camera.position[1]:.2f}",
             10,
             10,
             arcade.color.WHITE,

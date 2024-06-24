@@ -620,8 +620,8 @@
                      "name":"Tree",
                      "polyline":[
                             {
-                             "x":0,
-                             "y":0
+                             "x":-24,
+                             "y":144
                             }, 
                             {
                              "x":17,
@@ -641,6 +641,26 @@
                      "width":0,
                      "x":2425,
                      "y":1040
+                    }, 
+                    {
+                     "height":0,
+                     "id":23,
+                     "name":"",
+                     "polyline":[
+                            {
+                             "x":31,
+                             "y":93
+                            }, 
+                            {
+                             "x":-300,
+                             "y":211
+                            }],
+                     "rotation":0,
+                     "type":"Wall",
+                     "visible":true,
+                     "width":0,
+                     "x":2478,
+                     "y":852
                     }],
              "opacity":1,
              "type":"objectgroup",

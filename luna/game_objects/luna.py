@@ -57,6 +57,7 @@ class Luna(GameObject):
     _on_ground: bool = False
     _effective_ground: EffectiveGround | None = None
     _delta_inertia = Vec2(0, 0)
+    _previous_position = Vec2(0, 0)
 
     _debug_draws = []
 
@@ -107,8 +108,7 @@ class Luna(GameObject):
         self._debug_draws.clear()
 
     def update_position(self, delta_time: float) -> None:
-        self._initial_hitbox = self.compute_hitbox()
-        self._initial_position = self.position
+        self._previous_position = self.position
 
         # add gravity
         if not self._on_ground:
@@ -123,7 +123,10 @@ class Luna(GameObject):
             self._inertia = Vec2(self._inertia.x, self._TERMINAL_VELOCITY)
 
         self._delta_inertia = self._inertia * delta_time
-        self.position = self.position + self._inertia * delta_time
+        self.position += self._inertia * delta_time
+
+        # Collisions with walls
+        self.resolve_wall_collisions()
 
         # find the nearest ground beneath us
         self._effective_ground = self.find_ground_below()
@@ -139,7 +142,8 @@ class Luna(GameObject):
                 )
             )
             # See if we are falling into this ground, not just finding ourselves under it
-            if self._inertia.y * delta_time <= self._effective_ground.distance_down <= 0:
+            amount_moved = abs(self.position - self._previous_position)
+            if self._inertia.y < 0 and -amount_moved <= self._effective_ground.distance_down <= 0:
                 self._on_ground = True
                 self._inertia = Vec2(self._inertia.x, 0)
 
@@ -152,9 +156,6 @@ class Luna(GameObject):
             self.position = self.position - Vec2(0, self._effective_ground.distance_down)
         else:
             movement_friction = 0.25
-
-        # Collisions with walls
-        self.resolve_wall_collisions()
 
         # add input inertia
         self._inertia = self._inertia + Vec2(self._horizontal_input * movement_friction * self._ACCELERATION * delta_time, 0)
@@ -240,13 +241,15 @@ class Luna(GameObject):
                     distance = shapely.distance(luna_collision_line, intersection)
                     true_distance = distance - x_offset
 
-                    if true_distance < 0:
-                        # inside a wall
-                        if abs(true_distance) <= abs(x_offset / 2):
-                            self.position = self.position + Vec2(direction * true_distance, 0)
-                            self._inertia = Vec2(0, self._inertia.y)
+                    if true_distance < 0 and abs(true_distance) <= abs(x_offset / 2):
+                        self._inertia = Vec2(0, self._inertia.y)
+                        self.position = self.position + Vec2(direction * true_distance, 0)
+                        # project inertia onto the wall
+                        wall_vector = Vec2(geom.coords[0][0], geom.coords[0][1]) - Vec2(geom.coords[1][0], geom.coords[1][1])
+                        inertia_proj = self._inertia.dot(wall_vector) / (abs(wall_vector) ** 2) * wall_vector
+                        self._inertia = inertia_proj
 
-    def compute_hitbox(self):
+    def compute_hitbox(self) -> Polygon:
         hitbox = Polygon([
             (self.position[0] - self._bounding_box_width // 2, self.position[1]),
             (self.position[0] + self._bounding_box_width // 2, self.position[1]),
